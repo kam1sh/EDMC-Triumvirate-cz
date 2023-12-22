@@ -96,12 +96,7 @@ context.help_page_opened = False
 context.latest_dashboard_entry = None
 
 
-# BGS: подготовительные работы
-try:
-    open(f"{os.path.expanduser('~')}\\AppData\\Local\\EDMarketConnector\\currentmissions.trmv", "x")
-except FileExistsError:
-    pass
-BGS = legacy.BGS()
+BGS = legacy.BGS.from_file("currentmissions.db")
 CZ_TRACKER = legacy.CZ_Tracker()
 
 
@@ -430,7 +425,7 @@ def journal_entry_wrapper(
     legacy.AXZone(cmdr, is_beta, system, x, y, z, station, entry, state)
     legacy.faction_kill(cmdr, is_beta, system, station, entry, state)
     legacy.NHSS.submit(cmdr, is_beta, system, x, y, z, station, entry, client)
-    BGS.TaskCheck(cmdr, is_beta, system, station, entry, client)
+    BGS.submit_task(cmdr, is_beta, system, station, entry, client)
     CZ_TRACKER.check_event(cmdr, system, entry)
     legacy.GusonExpeditions(cmdr, is_beta, system, entry)
     if status_message is not None:
