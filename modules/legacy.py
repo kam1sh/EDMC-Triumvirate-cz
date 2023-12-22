@@ -802,36 +802,6 @@ CREATE TABLE IF NOT EXISTS events (kind, key, payload)
         cur.close()
         self.db.commit()
 
-    def __del__(self):
-        self.threadlock.acquire()
-        # Очистка файла миссий от устаревших, чей результат выполнения не был "пойман"
-        missionslist = []
-        with open(self.CURRENT_MISSIONS_FILE, 'r', encoding='utf8') as missionsfile:
-            count = 0
-            for line in missionsfile:
-                missionslist.append(line)
-                count += 1
-            debug(f"Missions read: {count}")
-        with open(self.CURRENT_MISSIONS_FILE, 'w', encoding='utf8') as missionsfile:
-            count = 0
-            for line in missionslist:
-                mission = json.loads(line)
-                try:
-                    pass
-                except KeyError:
-                    debug(f"Mission {mission['ID']} is written in old format and doesn't have 'expires' field, adding back to file.")
-                    missionsfile.write(line)
-                    count += 1
-                else:
-                    if expires > now:
-                        missionsfile.write(line)
-                        count += 1
-                    else:
-                        debug(f"Mission {mission['ID']} expired.")
-            debug(f"Missions written: {count}")
-        self.threadlock.release()
-
-
 
 class CZ_Tracker():
     def __init__(self):
