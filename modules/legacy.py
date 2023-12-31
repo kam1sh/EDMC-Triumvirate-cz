@@ -562,12 +562,11 @@ class NHSS(threading.Thread):
 
 class BGS:
     def __init__(self, path):
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=False)
         # self.CURRENT_MISSIONS_FILE = f"{os.path.expanduser('~')}\\AppData\\Local\\EDMarketConnector\\currentmissions.trmv"
         self.mainfaction = ""
         self.threadlock = threading.Lock()
         self.create_schema()
-        self.prune_expired()
 
     @classmethod
     def from_file(cls, name):
@@ -576,34 +575,35 @@ class BGS:
 
     def create_schema(self):
         cur = self.db.cursor()
-        cur.execute("""
-CREATE TABLE IF NOT EXISTS events (kind, key, payload)
-                    """)
+        cur.execute("CREATE TABLE IF NOT EXISTS events (kind, key, payload)")
 
     def submit_task(self, cmdr, is_beta, system, station, entry, client):
         with self.threadlock:
-            event = entry["event"]
-            # стыковка/вход в игру на станции
-            if event == "Docked" or (event == "Location" and entry["Docked"] == True):
-                self.__set_faction(entry)
-            # принятие миссии
-            elif event == "MissionAccepted":
-                self.__mission_accepted(entry, system)
-            # сдача миссии
-            elif event == "MissionCompleted":
-                self.__mission_completed(entry, cmdr)
-            # провал миссии
-            elif event == "MissionFailed":
-                self.__mission_failed(entry, cmdr)
-            # отказ от миссии
-            elif event == "MissionAbandoned":
-                self.__mission_abandoned(entry)
-            # ваучеры
-            elif event == "RedeemVoucher":
-                self.__redeem_voucher(entry, cmdr, system)
-            # картография
-            elif "SellExplorationData" in event:
-                self.__exploration_data(entry, cmdr, system, station)
+            try:
+                event = entry["event"]
+                # стыковка/вход в игру на станции
+                if event == "Docked" or (event == "Location" and entry["Docked"] == True):
+                    self.__set_faction(entry)
+                # принятие миссии
+                elif event == "MissionAccepted":
+                    self.__mission_accepted(entry, system)
+                # сдача миссии
+                elif event == "MissionCompleted":
+                    self.__mission_completed(entry, cmdr)
+                # провал миссии
+                elif event == "MissionFailed":
+                    self.__mission_failed(entry, cmdr)
+                # отказ от миссии
+                elif event == "MissionAbandoned":
+                    self.__mission_abandoned(entry)
+                # ваучеры
+                elif event == "RedeemVoucher":
+                    self.__redeem_voucher(entry, cmdr, system)
+                # картография
+                elif "SellExplorationData" in event:
+                    self.__exploration_data(entry, cmdr, system, station)
+            except:
+                error(traceback.format_exc())
         
 
     def __set_faction(self, entry):
@@ -626,7 +626,7 @@ CREATE TABLE IF NOT EXISTS events (kind, key, payload)
         }
         debug("MISSION_ACCEPTED: saved data: {!r}", mission)
         cur = self.db.cursor()
-        cur.execute("INSERT INTO events (kind, key, payload) VALUES (?, ?, ?)", [("mission", mission["ID"], json.dumps(mission))])
+        cur.execute("INSERT INTO events (kind, key, payload) VALUES (?, ?, ?)", ("mission", mission["ID"], json.dumps(mission)))
         self.db.commit()
 
     def __mission_completed(self, entry, cmdr):
@@ -801,6 +801,10 @@ CREATE TABLE IF NOT EXISTS events (kind, key, payload)
             cur.execute("DELETE FROM events WHERE kind = 'mission' AND key = ?", (x,))
         cur.close()
         self.db.commit()
+    
+    def stop(self):
+        self.prune_expired()
+        self.db.close()
 
 
 class CZ_Tracker():
